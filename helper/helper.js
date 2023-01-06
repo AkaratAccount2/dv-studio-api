@@ -1,7 +1,7 @@
 var util = require('util');
 
 function formatJSON(jsonObj){
-    return JSON.stringify(jsonObj,null,2);
+   return JSON.stringify(jsonObj,null,2);
 }
 
 function formatJSONWrap(jsonObj){
@@ -52,6 +52,10 @@ function isUndefined (value) {
     return typeof value === 'undefined';
 }
 
+function isNullEmptry (value) {
+    return isNull(value) || isUndefined(value) || value.length === 0;
+}
+
 // Returns if a value is a boolean
 function isBoolean (value) {
     return typeof value === 'boolean';
@@ -88,4 +92,4 @@ function printText(desc,passObject){
 }
 
 
-module.exports = { formatJSON , formatJSONWrap ,printText ,isUndefined ,isNull}
+module.exports = { formatJSON , formatJSONWrap ,printText ,isUndefined ,isNull ,isNullEmptry ,isArray ,isObject ,formatJSONWrap}

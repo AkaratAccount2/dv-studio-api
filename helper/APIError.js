@@ -29,6 +29,13 @@ class APIError extends ExtendableError {
     constructor(message, status = httpStatus.INTERNAL_SERVER_ERROR, isPublic = false) {
         super(message, status, isPublic);
     }
+
+    jsonReturn(){
+        return {
+            code: this.status,
+            message: this.isPublic ? this.message : httpStatus[this.status]
+        };
+    } 
 }
 
 
