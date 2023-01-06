@@ -145,6 +145,17 @@ router.get("/v1/profile/:usercode", asyncMiddleware(async (req, res, next) => {
     ).jsonReturn())    
 }))
 
+router.get("/v1/profile/max_usercode/:currentYear", asyncMiddleware(async (req, res, next) => {
+    //logger.info(`[Admin] GET /v1/profile/${usercode}`)
+    let currentYear = req.params.currentYear;
+    let connection = await getConnection();
+    let sql = `SELECT usercode FROM dv_person_profile where usercode like '${currentYear}%' order by usercode desc limit 1`
+    console.log(sql)
+    let [max_usercode] = await connection.query(sql);
+    console.log(max_usercode)
+    res.json(max_usercode)
+}))
+
 router.post("/v1/profile/create", asyncMiddleware(async (req, res, next) => {
     logger.info("[Admin] POST /v1/profile/create")
     let registrationDate = defaultEmptryValue(req.body.registrationDate)
