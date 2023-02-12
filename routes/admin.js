@@ -675,7 +675,7 @@ router.post(
 );
 
 /** ########## SEND MAIL ########### */
-const upload = multer({ dest: 'uploads'});
+const upload = multer({ dest: "public/files" });
 const nodemailer = require("nodemailer");
 
 router.post(
