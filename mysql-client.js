@@ -6,8 +6,8 @@ async function main() {
   try {
     pool = await mysql.createPool({
       connectionLimit: 80,
-      acquireTimeout: 120000,
-      conneectionTimeout: 120000,
+      //acquireTimeout: 120000,
+      //conneectionTimeout: 120000,
       host: baseconfig.mysql_host, // process.env.DB_HOST, //baseconfig.mysql_host, //'172.17.0.1',
       port: baseconfig.mysql_port,
       user: baseconfig.mysql_user,
@@ -19,6 +19,7 @@ async function main() {
         rejectUnauthorized: false,
       },
     });
+    console.log("[MYSQL] create pool -> success");
     return pool;
   } catch (error) {
     console.log("[MYSQL] create pool -> failed");
@@ -30,16 +31,30 @@ async function main() {
 var pool = main();
 
 var getConnection = async () => {
+  //wait for pool to be created
+  while (pool == undefined) { 
+    console.log("[MYSQL] pool is undefined");
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
   let connection = await pool.getConnection();
   return connection;
   // return new Promise(resolve => {
   // });
 };
+
 module.exports = getConnection;
 
-// const [rows] = await connection.query('SELECT * FROM users');
-// console.log(rows);
-// connection.end();
+//async anonymous function
+(async () => {
+  pool.then(async(pool) => {
+    console.log("[MYSQL] pool " + pool);
+    const connection = await getConnection();
+    const [rows] = await connection.query("SELECT * FROM dv_users");
+    console.log(rows);
+    connection.end();
+  });
+ 
+})();
 
 // var getConnection = function(callback) {
 //     pool.getConnection(function(err, connection) {

@@ -7,6 +7,7 @@ const helper = require("./../helper/helper");
 const APIError = require("./../helper/APIError");
 const APIResponse = require("./../helper/APIResponse");
 const asyncMiddleware = require("./utils/asyncMiddleWare");
+const AWS = require("aws-sdk");
 
 const defaultEmptryValue = (value) => {
   return helper.isNullEmptry(value) ? "" : value;
@@ -14,11 +15,16 @@ const defaultEmptryValue = (value) => {
 
 //function to convert date string in format "DD/MM/YYYY" to "YYYY-MM-DD HH:mm:ss" format  ,example 22/03/2023 to 2023-03-22 00:00:00  , 22/03/2023 12:00 to 2023-03-22 12:00:00
 function dateDDMMYYYYConvertToDB(dateString) {
-  const [day, month, year] = dateString.split('/');
-  const [hours = '00', minutes = '00'] = dateString.split(' ')[1] ? dateString.split(' ')[1].split(':') : [];
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${hours}:${minutes}:00`;
+  const [day, month, year] = dateString.split("/");
+  const [hours = "00", minutes = "00"] = dateString.split(" ")[1]
+    ? dateString.split(" ")[1].split(":")
+    : [];
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(
+    2,
+    "0"
+  )} ${hours}:${minutes}:00`;
 }
-    
+
 const datetimeConvertToDB = (dateTimeString) => {
   //const dateTimeString = '2023-01-05T04:44:04.333Z';
 
@@ -82,7 +88,7 @@ router.post(
       );
       let [users] = await statement.execute([username]); //return [ row_object ]
 
-      connection.end();
+      connection.release();
       if (users[0]) {
         authen(users[0], password, res);
       } else {
@@ -144,7 +150,7 @@ router.post(
       //     return p
       // })
       // console.dir(person)
-      connection.end();
+      connection.release();
       res.json(new APIResponse("Success", 200, person, true).jsonReturn());
     } catch (err) {
       console.log(err);
@@ -167,7 +173,7 @@ router.get(
         "SELECT * FROM dv_person_profile where usercode = ?"
       );
       let [person] = await statement.execute([usercode]); //return [ row_object ]
-      connection.end();
+      connection.release();
       res.json(
         new APIResponse(
           "Success",
@@ -197,7 +203,7 @@ router.get(
       console.log(sql);
       let [max_usercode] = await connection.query(sql);
       console.log(max_usercode);
-      connection.end();
+      connection.release();
       res.json(max_usercode);
     } catch (err) {
       console.log(err);
@@ -258,7 +264,7 @@ router.post(
         ]); //return [ row_object ]
         console.log("Inserted table dv_person_profile");
         console.log(person);
-        connection.end();
+        connection.release();
         res.json(new APIResponse("Success", 200, person, true).jsonReturn());
       }
     } catch (err) {
@@ -281,7 +287,7 @@ router.get(
         "SELECT name FROM dv_person_type where locale = ? "
       );
       let [options] = await statement.execute(["th"]); //return [ row_object ]
-      connection.end();
+      connection.release();
       res.json(options);
     } catch (err) {
       console.log(err);
@@ -303,7 +309,7 @@ router.get(
         "SELECT name FROM dv_payment_option where locale = ? "
       );
       let [options] = await statement.execute(["th"]); //return [ row_object ]
-      connection.end();
+      connection.release();
       res.json(options);
     } catch (err) {
       console.log(err);
@@ -346,7 +352,7 @@ router.post(
       ]); //return [ row_object ]
       console.log("Inserted table dv_learn_profile");
       console.log(learn);
-      connection.end();
+      connection.release();
       res.json(new APIResponse("Success", 200, learn, true).jsonReturn());
     }
   })
@@ -391,7 +397,7 @@ router.post(
       let [learns] = await connection.query(
         sql_search + where_clase + "order by class_start_date desc"
       ); //return [ row_object ]
-      connection.end();
+      connection.release();
       res.json(new APIResponse("Success", 200, learns, true).jsonReturn());
     } catch (err) {
       console.log(err);
@@ -413,7 +419,7 @@ router.get(
         "SELECT * FROM dv_learn_profile where gen_learn_no = ?"
       );
       let [learn] = await statement.execute([learnNo]); //return [ row_object ]
-      connection.end();
+      connection.release();
       res.json(
         new APIResponse(
           "Success",
@@ -442,7 +448,7 @@ router.get(
         "SELECT * FROM dv_learn_profile where usercode = ?"
       );
       let [learns] = await statement.execute([usercode]); //return [ row_object ]
-      connection.end();
+      connection.release();
       res.json(new APIResponse("Success", 200, learns, true).jsonReturn());
     } catch (err) {
       console.log(err);
@@ -465,15 +471,8 @@ router.get(
         "SELECT * FROM dv_learn_log where gen_learn_no = ? order by seq asc"
       );
       let [checkpoint] = await statement.execute([learnNo]); //return [ row_object ]
-      connection.end();
-      res.json(
-        new APIResponse(
-          "Success",
-          200,
-          checkpoint,
-          true
-        ).jsonReturn()
-      );
+      connection.release();
+      res.json(new APIResponse("Success", 200, checkpoint, true).jsonReturn());
     } catch (err) {
       console.log(err);
       err.stack = err.stack.replace(/\\/g, "/");
@@ -500,41 +499,66 @@ router.post(
     let parse_startDate = datetimeConvertToDB(learnDate);
     parse_startDate = parse_startDate.slice(0, 11) + "00:00" + ":00";
     console.log("parse_startDate : " + parse_startDate);
-    console.log("startTime : " + startTime);  
+    console.log("startTime : " + startTime);
     console.log("endTime : " + endTime);
     console.log("note : " + note);
     console.log("seq : " + seq);
     console.log("learnNo : " + learnNo);
     console.log("usercode : " + usercode);
-    if (!helper.isNullEmptry(learnNo) && !helper.isNullEmptry(usercode) && !helper.isNullEmptry(seq)) {
+    if (
+      !helper.isNullEmptry(learnNo) &&
+      !helper.isNullEmptry(usercode) &&
+      !helper.isNullEmptry(seq)
+    ) {
       let connection = await getConnection();
       //Check exist
-      let sql_search = "SELECT * FROM dv_learn_log where gen_learn_no = ? and seq = ? and usercode = ? ";
-      let statement = await connection.prepare(sql_search); 
-      let [checkpoint] = await statement.execute([learnNo, seq ,usercode]); //return [ row_object ]
+      let sql_search =
+        "SELECT * FROM dv_learn_log where gen_learn_no = ? and seq = ? and usercode = ? ";
+      let statement = await connection.prepare(sql_search);
+      let [checkpoint] = await statement.execute([learnNo, seq, usercode]); //return [ row_object ]
       if (checkpoint.length > 0) {
         //Update
-        let sql_update = "UPDATE dv_learn_log SET learned_date = ?, start_time = ?, end_time = ? ," +
-                         " note = ? where gen_learn_no = ? and seq = ? and usercode = ? ";
+        let sql_update =
+          "UPDATE dv_learn_log SET learned_date = ?, start_time = ?, end_time = ? ," +
+          " note = ? where gen_learn_no = ? and seq = ? and usercode = ? ";
         let statement2 = await connection.prepare(sql_update);
-        let learn = await statement2.execute([parse_startDate, startTime, endTime, note, learnNo, seq, usercode]); //return [ row_object ]
+        let learn = await statement2.execute([
+          parse_startDate,
+          startTime,
+          endTime,
+          note,
+          learnNo,
+          seq,
+          usercode,
+        ]); //return [ row_object ]
         console.log("Updated table dv_learn_log");
         console.log(learn);
-        connection.end();
+        connection.release();
         res.json(new APIResponse("Success", 200, learn, true).jsonReturn());
       } else {
         //Insert
-        let sql_insert = "Insert into dv_learn_log ( usercode, gen_learn_no, learned_date, start_time, end_time, note, seq) " +
-                          " Values(?,?,?,?,?,?,? ) ";
+        let sql_insert =
+          "Insert into dv_learn_log ( usercode, gen_learn_no, learned_date, start_time, end_time, note, seq) " +
+          " Values(?,?,?,?,?,?,? ) ";
         let statement2 = await connection.prepare(sql_insert);
-        let learn = await statement2.execute([usercode, learnNo, parse_startDate, startTime, endTime, note, seq]); //return [ row_object ]
+        let learn = await statement2.execute([
+          usercode,
+          learnNo,
+          parse_startDate,
+          startTime,
+          endTime,
+          note,
+          seq,
+        ]); //return [ row_object ]
         console.log("Inserted table dv_learn_log");
         console.log(learn);
-        connection.end();
+        connection.release();
         res.json(new APIResponse("Success", 200, learn, true).jsonReturn());
       }
     } else {
-      res.json(new APIResponse("Error", 500, "Missing parameter", true).jsonReturn());
+      res.json(
+        new APIResponse("Error", 500, "Missing parameter", true).jsonReturn()
+      );
     }
   })
 );
@@ -553,24 +577,31 @@ router.post(
     let seq = defaultEmptryValue(req.body.key); //seq
     //console.log("body : " + JSON.stringify(req.body));
     console.log("learnDate : " + learnDate);
-    console.log("startTime : " + startTime);  
+    console.log("startTime : " + startTime);
     console.log("endTime : " + endTime);
     console.log("note : " + note);
     console.log("seq : " + seq);
     console.log("learnNo : " + learnNo);
     console.log("usercode : " + usercode);
-    if (!helper.isNullEmptry(learnNo) && !helper.isNullEmptry(usercode) && !helper.isNullEmptry(seq)) {
+    if (
+      !helper.isNullEmptry(learnNo) &&
+      !helper.isNullEmptry(usercode) &&
+      !helper.isNullEmptry(seq)
+    ) {
       let connection = await getConnection();
       //remove  checkpoint
-      let sql_remove = "DELETE FROM dv_learn_log where gen_learn_no = ? and seq = ? and usercode = ? ";
+      let sql_remove =
+        "DELETE FROM dv_learn_log where gen_learn_no = ? and seq = ? and usercode = ? ";
       let statement = await connection.prepare(sql_remove);
-      let learn = await statement.execute([learnNo, seq ,usercode]); //return [ row_object ]
+      let learn = await statement.execute([learnNo, seq, usercode]); //return [ row_object ]
       console.log("Removed table dv_learn_log");
       console.log(learn);
-      connection.end();
+      connection.release();
       res.json(new APIResponse("Success", 200, learn, true).jsonReturn());
     } else {
-      res.json(new APIResponse("Error", 500, "Missing parameter", true).jsonReturn());
+      res.json(
+        new APIResponse("Error", 500, "Missing parameter", true).jsonReturn()
+      );
     }
   })
 );
@@ -611,7 +642,7 @@ router.post(
         ]); //return [ row_object ]
         console.log("Inserted table dv_payment");
         console.log(person);
-        connection.end();
+        connection.release();
         res.json(new APIResponse("Success", 200, person, true).jsonReturn());
       }
     } catch (err) {
@@ -662,7 +693,7 @@ router.post(
       let [learns] = await connection.query(
         sql_search + where_clase + "order by receipt_date desc"
       ); //return [ row_object ]
-      connection.end();
+      connection.release();
 
       res.json(new APIResponse("Success", 200, learns, true).jsonReturn());
     } catch (err) {
@@ -696,7 +727,6 @@ router.post(
       // encode the binary data as base64
       //const encodedData = new Buffer.from(blob).toString("base64");
 
-
       // create reusable transporter object using the default SMTP transport
       let transporter = nodemailer.createTransport({
         host: "smtp.gmail.com",
@@ -719,12 +749,13 @@ router.post(
           text: "Plain text content of the email", // plain text body
           html: "<b>" + paymentNo + "</b>", // html body
           attachments: [
-            {  // filename and content type is derived from path
+            {
+              // filename and content type is derived from path
               filename: `${paymentNo}-receipt.pdf`,
               content: blob,
-              contentType: 'application/pdf'
-            } 
-          ]
+              contentType: "application/pdf",
+            },
+          ],
           // attachments: [{
           //   filename: 'file.pdf',
           //   content: encodedData,
@@ -748,6 +779,159 @@ router.post(
     }
   })
 );
+
+router.post(
+  "/v1/payment/mail2",
+  asyncMiddleware(async (req, res, next) => {
+    try {
+      logger.info("[Admin] POST /v1/payment/mail2");
+      console.log(req.body)
+      let userCode = defaultEmptryValue(req.body.userCode);
+      let paymentNo = defaultEmptryValue(req.body.paymentNo);
+      let firstName = defaultEmptryValue(req.body.firstName);
+      let emailTo = defaultEmptryValue(req.body.emailTo);
+
+      const S3_BUCKET = "dv-receipts";
+      const REGION = "ap-southeast-1";
+      const BUFFER_SIZE = 64 * 1024 * 1024;
+
+      AWS.config.update({
+        accessKeyId: "AKIAQHS4IHLX2QIJJGE3",
+        secretAccessKey: "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",
+      });
+
+      const s3 = new AWS.S3({
+        region: REGION,
+        params: { Bucket: S3_BUCKET },
+      });
+
+      const params = {
+        Bucket: S3_BUCKET,
+        Key: paymentNo + ".pdf",
+        //Body: pdfData,
+        //ACL: "public-read",
+      };
+
+      s3.getObject(params, function (err, data) {
+        if (err) {
+          console.log("Error! get file from S3");
+          console.log("params : ")
+          console.log(params)
+          console.log("err.stack : ")
+          console.log(err, err.stack);
+          res.json(
+            new APIResponse("Success", 200, err, true).jsonReturn()
+          );
+          console.log("delete file from S3");
+          // delete file from S3
+          s3.deleteObject(params, function (err, data) {
+            if (err) {
+              console.log("Error! delete file from S3");    
+              console.log(err, err.stack);
+            } else {
+              console.log("Success! delete file from S3");
+              console.log(data);
+            }
+          });
+
+        } else {
+          console.log("Success! get file from S3");
+          console.log("data : ");
+          console.log(data);
+          //data.body = data.Body.toString("utf-8"); //<Buffer>
+
+          // create reusable transporter object using the default SMTP transport
+          let transporter = nodemailer.createTransport({
+            host: "smtp.gmail.com",
+            port: 587,
+            secure: false, // true for 465, false for other ports
+            auth: {
+              user: "davincibluestudio@gmail.com", // your Gmail address
+              pass: "xenullflwhjlhwdr", // your Gmail password
+            },
+          });
+          //send mail with defined transport object and attachments (if any)
+
+          // send mail with defined transport object
+          transporter.sendMail(
+            {
+              from: '"davincibluestudio@gmail.com', // sender address
+              to: emailTo, //"akarat2729@gmail.com", // list of receivers
+              subject:
+                "Receipt and Notifications เนื้อหาตามใบเสร็จที่พี่ส่งให้นะคะ & please do not reply back this is automated mail", // Subject line
+              text: "Plain text content of the email", // plain text body
+              html: "<b>" + paymentNo + "</b>", // html body
+              attachments: [
+                {
+                  // filename and content type is derived from path
+                  filename: `${paymentNo}-receipt.pdf`,
+                  content: data.Body,//blob,
+                  contentType: "application/jpeg",
+                  //contentType: "application/pdf",
+                },
+              ],
+              // attachments: [{
+              //   filename: 'file.pdf',
+              //   content: encodedData,
+              //   encoding: 'base64'
+              // }]
+            },
+            (error, info) => {
+              if (error) {
+                res.json(
+                  new APIResponse("Success", 200, error, true).jsonReturn()
+                );
+                return console.log(error);
+              }
+              console.log("Message sent: %s", info.messageId);
+              res.json(
+                new APIResponse("Success", 200, info, true).jsonReturn()
+              );
+              console.log("delete file from S3");
+              s3.deleteObject(params, function (err, data) {
+                if (err) {
+                  console.log("Error! delete file from S3");    
+                  console.log(err, err.stack);
+                } else {
+                  console.log("Success! delete file from S3");
+                  console.log(data);
+                }
+              });
+            }
+          );
+
+         
+
+
+        }//else end
+      });
+    } catch (err) {
+      console.log(err);
+      err.stack = err.stack.replace(/\\/g, "/");
+      console.log(err.stack);
+      res.json(new APIResponse("Error", 500, err, true).jsonReturn());
+    }
+  })
+);
+
+// const html2canvas = require("html2canvas");
+// const _jspdf = require("jspdf");
+// //const { JSDOM } = require("jsdom");
+
+// function propagateToGlobal(window) {
+//   try{
+//     console.log("propagateToGlobal");
+//     for (let key in window) {
+//       if (!window.hasOwnProperty(key)) continue;
+//       if (key in global) continue;
+//       global[key] = window[key];
+//     }
+//   }catch(err){
+//     console.log(err);
+//     console.log(err.stack);
+//   }
+
+// }
 
 module.exports = router;
 
